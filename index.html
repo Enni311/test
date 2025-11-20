@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anime Voice Nexus</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+        :root {
+            --violet: #7a5cff;
+            --magenta: #ff68c2;
+            --cyan: #7af0ff;
+            --night: #05060d;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Space Grotesk', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: radial-gradient(120% 120% at 50% 0%, #2b1470 0%, #0d0f24 55%, #05060f 100%);
+            color: #f4f4ff;
+            min-height: 100vh;
+            margin: 0;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .orb {
+            position: fixed;
+            width: 32rem;
+            height: 32rem;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: 0.45;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .orb-one {
+            background: #ff6ec7;
+            top: -6rem;
+            left: -8rem;
+        }
+
+        .orb-two {
+            background: #5ac8ff;
+            bottom: -10rem;
+            right: -6rem;
+        }
+
+        .grid-overlay {
+            position: fixed;
+            inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+            background-size: 80px 80px;
+            z-index: 0;
+            pointer-events: none;
+            mix-blend-mode: screen;
+        }
+
+        .glass {
+            background: rgba(6, 8, 22, 0.82);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 1.5rem;
+            box-shadow: 0 35px 80px rgba(3, 4, 14, 0.65);
+        }
+
+        .video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.25rem;
+        }
+
+        video {
+            width: 100%;
+            border-radius: 1.25rem;
+            background: #050611;
+            border: 1px solid rgba(255,255,255,0.08);
+            object-fit: cover;
+            min-height: 220px;
+            box-shadow: 0 20px 45px rgba(0,0,0,0.55);
+        }
+
+        video.mirror {
+            transform: scaleX(-1);
+        }
+
+        #remoteVideos {
+            display: contents;
+        }
+
+        .channel-card {
+            position: relative;
+            overflow: hidden;
+            border-radius: 1.25rem;
+            padding: 1.2rem;
+            background: rgba(18, 12, 36, 0.9);
+            border: 1px solid rgba(255,255,255,0.08);
+            cursor: pointer;
+            transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .channel-card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(255, 120, 188, 0.55), transparent 55%);
+            opacity: 0.5;
+            pointer-events: none;
+        }
+
+        .channel-card:hover {
+            transform: translateY(-4px) scale(1.01);
+            border-color: rgba(255,255,255,0.18);
+        }
+
+        .channel-card-active {
+            border-color: #ff93e1;
+            box-shadow: 0 0 35px rgba(255, 147, 225, 0.35);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.18em;
+            padding: 0.35rem 0.9rem;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+        }
+
+        .btn-toggle {
+            width: 100%;
+            border-radius: 1rem;
+            padding: 0.85rem 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            font-weight: 600;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.07);
+            color: #f8f9ff;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+        }
+
+        .btn-toggle:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-disabled {
+            background: rgba(255,255,255,0.05);
+            color: #b7badf;
+        }
+
+        .btn-active {
+            background: linear-gradient(120deg, #ff67c4, #ffb15c);
+            color: #140f25;
+            border-color: transparent;
+            box-shadow: 0 15px 35px rgba(255, 120, 194, 0.4);
+        }
+
+        #emptyState {
+            border: 1px dashed rgba(255,255,255,0.2);
+            border-radius: 1.25rem;
+            background: rgba(255,255,255,0.02);
+        }
+
+        .remote-label {
+            position: absolute;
+            bottom: 0.9rem;
+            left: 0.9rem;
+            background: rgba(3, 4, 18, 0.7);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 999px;
+            padding: 0.25rem 0.9rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        code {
+            background: rgba(255,255,255,0.08);
+            padding: 0.15rem 0.4rem;
+            border-radius: 0.4rem;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 640px) {
+            .glass {
+                border-radius: 1.1rem;
+            }
+
+            .channel-card {
+                padding: 1rem;
+            }
+        }
+    </style>
+</head>
+<body class="text-white">
+    <div class="orb orb-one"></div>
+    <div class="orb orb-two"></div>
+    <div class="grid-overlay"></div>
+
+    <div class="relative z-10">
+        <div id="loginScreen" class="min-h-screen flex items-center justify-center px-4 py-10">
+            <div class="glass w-full max-w-lg p-10 space-y-8 text-center">
+                <p class="badge mx-auto text-pink-200">Neo Otaku Access</p>
+                <div>
+                    <h1 class="text-4xl font-bold">Anime Voice Nexus</h1>
+                    <p class="text-white/70 mt-3">Никаких email. Просто ник и связь как в Discord.</p>
+                </div>
+                <div class="space-y-4">
+                    <input 
+                        type="text"
+                        id="nicknameInput"
+                        maxlength="20"
+                        placeholder="Ваш ник в неоне"
+                        class="w-full bg-white/5 border border-white/10 rounded-xl px-5 py-3 focus:outline-none focus:border-pink-500 focus:bg-white/10 placeholder-white/40 text-lg"
+                    />
+                    <button
+                        onclick="login()"
+                        class="w-full bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-400 py-3 rounded-xl font-semibold tracking-wider uppercase shadow-lg shadow-pink-500/40 hover:shadow-cyan-400/40 transition"
+                    >
+                        Подключиться
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="mainScreen" class="hidden min-h-screen px-4 py-8">
+            <div class="max-w-7xl mx-auto space-y-6">
+                <div class="glass p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <div>
+                        <p class="badge text-white/70">Профиль подключён</p>
+                        <h2 class="text-3xl font-bold mt-3">Йо, <span id="userNickname" class="text-pink-300"></span>!</h2>
+                        <p class="text-sm text-white/60 mt-1">ID: <span id="userId" class="font-mono text-white/80"></span></p>
+                    </div>
+                    <button 
+                        onclick="logout()"
+                        class="px-6 py-3 rounded-xl bg-red-500/80 hover:bg-red-400 font-semibold uppercase tracking-wide transition border border-red-400/60 shadow-lg shadow-red-500/40"
+                    >
+                        Выйти
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="space-y-6">
+                        <div class="glass p-6 space-y-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="badge text-white/70">Neo Lobby</p>
+                                    <h3 class="text-2xl font-semibold mt-2">Голосовые комнаты</h3>
+                                </div>
+                                <span class="text-sm text-white/60">2 активных</span>
+                            </div>
+
+                            <div id="channel1Card" class="channel-card" onclick="joinChannel('channel1')">
+                                <div class="relative z-10 flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-white/60 uppercase tracking-widest">Комната 01</p>
+                                        <h4 class="text-xl font-bold text-white">🌸 Anime Lounge</h4>
+                                        <p class="text-xs text-white/60 mt-1 flex items-center gap-2">
+                                            <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                                            <span id="channel1Count">0</span> слушателей
+                                        </p>
+                                    </div>
+                                    <span id="channel1Status" class="text-3xl">🔊</span>
+                                </div>
+                            </div>
+
+                            <div id="channel2Card" class="channel-card" onclick="joinChannel('channel2')">
+                                <div class="relative z-10 flex items-center justify-between">
+                                    <div>
+                                        <p class="text-sm text-white/60 uppercase tracking-widest">Комната 02</p>
+                                        <h4 class="text-xl font-bold text-white">🔥 Raid Voice</h4>
+                                        <p class="text-xs text-white/60 mt-1 flex items-center gap-2">
+                                            <span class="w-2 h-2 bg-amber-400 rounded-full animate-pulse"></span>
+                                            <span id="channel2Count">0</span> бойцов
+                                        </p>
+                                    </div>
+                                    <span id="channel2Status" class="text-3xl">🔊</span>
+                                </div>
+                            </div>
+
+                            <div id="currentChannelInfo" class="hidden border border-white/15 rounded-xl p-4 bg-white/5 space-y-3">
+                                <p class="text-xs uppercase tracking-[0.3em] text-white/60">Сейчас вы в</p>
+                                <p id="currentChannelName" class="text-lg font-semibold text-white"></p>
+                                <button 
+                                    onclick="leaveChannel()"
+                                    class="w-full px-4 py-3 rounded-xl bg-red-500/80 hover:bg-red-400 font-semibold tracking-wide transition"
+                                >
+                                    Покинуть комнату
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="glass p-6 space-y-4">
+                            <div>
+                                <p class="badge text-white/70">Устройства</p>
+                                <h3 class="text-xl font-semibold mt-3">Контролы как в Discord</h3>
+                            </div>
+                            <button id="micBtn" onclick="toggleMic()" class="btn-toggle btn-disabled">
+                                <span id="micIcon">🔇</span>
+                                <span id="micText">Микрофон выкл</span>
+                            </button>
+                            <button id="camBtn" onclick="toggleCamera()" class="btn-toggle btn-disabled">
+                                <span id="camIcon">📹</span>
+                                <span id="camText">Камера выкл</span>
+                            </button>
+                            <button id="screenBtn" onclick="toggleScreen()" class="btn-toggle btn-disabled">
+                                <span id="screenIcon">🖥️</span>
+                                <span id="screenText">Демонстрация выкл</span>
+                            </button>
+                            <p class="text-xs text-white/60">
+                                При изменении медиа не забудьте обновить соединение с друзьями (они должны быть онлайн одновременно).
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-2 space-y-6">
+                        <div class="glass p-6 space-y-6">
+                            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                <div>
+                                    <p class="badge text-white/70">Live Stage</p>
+                                    <h3 class="text-2xl font-semibold mt-3">Участники</h3>
+                                </div>
+                                <p class="text-sm text-white/60">Поделитесь своим ID, чтобы друзья подключились</p>
+                            </div>
+
+                            <div id="emptyState" class="text-center py-16 px-4">
+                                <div class="text-6xl mb-4">✨</div>
+                                <p class="text-lg font-semibold">Вы ещё не в комнате</p>
+                                <p class="text-sm text-white/60 mt-2">Выберите канал слева и активируйте микрофон/камеру или демонстрацию.</p>
+                            </div>
+
+                            <div id="videoContainer" class="video-grid hidden">
+                                <div class="relative">
+                                    <video id="myVideo" autoplay muted playsinline class="mirror"></video>
+                                    <div class="remote-label">Вы • <span id="myNameLabel">Ник</span></div>
+                                </div>
+                                <div id="remoteVideos"></div>
+                            </div>
+                        </div>
+
+                        <div class="glass p-6">
+                            <div class="flex items-center gap-3 mb-4">
+                                <span class="text-2xl">📜</span>
+                                <h4 class="text-xl font-semibold">Сценарий подключения</h4>
+                            </div>
+                            <ul class="space-y-2 text-sm text-white/70">
+                                <li>• Выберите одну из комнат слева и дождитесь зелёного статуса.</li>
+                                <li>• Включите нужные устройства (микрофон, камера, демонстрация).</li>
+                                <li>• Скопируйте свой ID наверху и передайте другу.</li>
+                                <li>• Другой пользователь вводит в консоли браузера: <code>connectToUser("ВАШ_ID")</code>.</li>
+                                <li>• После соединения вы сможете слышать друг друга напрямую через WebRTC.</li>
+                                <li>• GitHub Pages готов: просто загрузите этот файл в репозиторий.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let peer;
+        let myStream = null;
+        let currentChannel = null;
+        let connections = {};
+        let micEnabled = false;
+        let cameraEnabled = false;
+        let screenEnabled = false;
+        let userNickname = '';
+        const channelNames = {
+            channel1: '🌸 Anime Lounge',
+            channel2: '🔥 Raid Voice'
+        };
+
+        function login() {
+            const nickname = document.getElementById('nicknameInput').value.trim();
+            if (!nickname) {
+                alert('Введите ваш ник!');
+                return;
+            }
+
+            userNickname = nickname;
+            localStorage.setItem('nickname', nickname);
+
+            const peerId = 'otaku_' + Math.random().toString(36).substr(2, 9);
+            peer = new Peer(peerId);
+
+            peer.on('open', (id) => {
+                document.getElementById('userId').textContent = id;
+                document.getElementById('userNickname').textContent = nickname;
+                document.getElementById('myNameLabel').textContent = nickname;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainScreen').classList.remove('hidden');
+                updateMediaButtons();
+
+                peer.on('call', (call) => {
+                    if (!myStream) {
+                        myStream = new MediaStream();
+                    }
+                    call.answer(myStream);
+
+                    call.on('stream', (remoteStream) => {
+                        addRemoteVideo(call.peer, remoteStream);
+                    });
+
+                    call.on('close', () => {
+                        removeRemoteVideo(call.peer);
+                    });
+
+                    call.on('error', () => {
+                        removeRemoteVideo(call.peer);
+                    });
+
+                    connections[call.peer] = call;
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error('Peer error:', err);
+                alert('Ошибка PeerJS: ' + err.message);
+            });
+        }
+
+        function logout() {
+            if (peer) peer.destroy();
+            if (myStream) {
+                myStream.getTracks().forEach(track => track.stop());
+            }
+            myStream = null;
+            micEnabled = false;
+            cameraEnabled = false;
+            screenEnabled = false;
+            connections = {};
+            localStorage.removeItem('nickname');
+            location.reload();
+        }
+
+        async function joinChannel(channelId) {
+            if (currentChannel === channelId) return;
+
+            if (currentChannel) {
+                leaveChannel();
+            }
+
+            currentChannel = channelId;
+            myStream = new MediaStream();
+            refreshVideoPreview();
+
+            document.getElementById('currentChannelInfo').classList.remove('hidden');
+            document.getElementById('currentChannelName').textContent = channelNames[channelId] || 'Неоновая комната';
+
+            Object.keys(channelNames).forEach(id => {
+                const statusEl = document.getElementById(id + 'Status');
+                if (statusEl) {
+                    statusEl.textContent = id === channelId ? '🟢' : '🔊';
+                }
+            });
+
+            highlightChannel(channelId);
+
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('videoContainer').classList.remove('hidden');
+
+            console.log('Вы внутри канала:', channelNames[channelId], '| Ваш ID:', peer?.id);
+        }
+
+        function leaveChannel() {
+            if (!currentChannel) return;
+
+            if (myStream) {
+                myStream.getTracks().forEach(track => track.stop());
+            }
+            myStream = null;
+
+            Object.values(connections).forEach(conn => {
+                if (conn.close) conn.close();
+            });
+            connections = {};
+
+            Object.keys(channelNames).forEach(id => {
+                const statusEl = document.getElementById(id + 'Status');
+                if (statusEl) statusEl.textContent = '🔊';
+            });
+
+            highlightChannel(null);
+
+            currentChannel = null;
+            micEnabled = false;
+            cameraEnabled = false;
+            screenEnabled = false;
+
+            document.getElementById('currentChannelInfo').classList.add('hidden');
+            document.getElementById('emptyState').classList.remove('hidden');
+            document.getElementById('videoContainer').classList.add('hidden');
+            document.getElementById('remoteVideos').innerHTML = '';
+            refreshVideoPreview();
+            updateMediaButtons();
+        }
+
+        async function toggleMic() {
+            if (!currentChannel) {
+                alert('Сначала зайдите в комнату.');
+                return;
+            }
+            if (!myStream) {
+                myStream = new MediaStream();
+            }
+
+            if (!micEnabled) {
+                try {
+                    const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    audioStream.getAudioTracks().forEach(track => {
+                        myStream.addTrack(track);
+                    });
+                    micEnabled = true;
+                } catch (err) {
+                    alert('Нет доступа к микрофону.');
+                    console.error(err);
+                    return;
+                }
+            } else {
+                myStream.getAudioTracks().forEach(track => {
+                    track.stop();
+                    myStream.removeTrack(track);
+                });
+                micEnabled = false;
+            }
+
+            updateMediaButtons();
+            updateConnections();
+        }
+
+        async function toggleCamera() {
+            if (!currentChannel) {
+                alert('Сначала зайдите в комнату.');
+                return;
+            }
+            if (!myStream) {
+                myStream = new MediaStream();
+            }
+
+            if (!cameraEnabled) {
+                try {
+                    const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    videoStream.getVideoTracks().forEach(track => {
+                        myStream.addTrack(track);
+                    });
+                    cameraEnabled = true;
+                } catch (err) {
+                    alert('Нет доступа к камере.');
+                    console.error(err);
+                    return;
+                }
+            } else {
+                myStream.getVideoTracks().forEach(track => {
+                    if (!track.label.toLowerCase().includes('screen')) {
+                        track.stop();
+                        myStream.removeTrack(track);
+                    }
+                });
+                cameraEnabled = false;
+            }
+
+            refreshVideoPreview();
+            updateMediaButtons();
+            updateConnections();
+        }
+
+        async function toggleScreen() {
+            if (!currentChannel) {
+                alert('Сначала зайдите в комнату.');
+                return;
+            }
+            if (!myStream) {
+                myStream = new MediaStream();
+            }
+
+            if (!screenEnabled) {
+                try {
+                    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: 'always' } });
+
+                    myStream.getVideoTracks().forEach(track => {
+                        track.stop();
+                        myStream.removeTrack(track);
+                    });
+                    cameraEnabled = false;
+
+                    screenStream.getVideoTracks().forEach(track => {
+                        myStream.addTrack(track);
+                        track.onended = () => {
+                            myStream.removeTrack(track);
+                            screenEnabled = false;
+                            refreshVideoPreview();
+                            updateMediaButtons();
+                        };
+                    });
+
+                    screenEnabled = true;
+                } catch (err) {
+                    alert('Не удалось включить демонстрацию.');
+                    console.error(err);
+                    return;
+                }
+            } else {
+                myStream.getVideoTracks().forEach(track => {
+                    track.stop();
+                    myStream.removeTrack(track);
+                });
+                screenEnabled = false;
+            }
+
+            refreshVideoPreview();
+            updateMediaButtons();
+            updateConnections();
+        }
+
+        function updateMediaButtons() {
+            const micBtn = document.getElementById('micBtn');
+            const camBtn = document.getElementById('camBtn');
+            const screenBtn = document.getElementById('screenBtn');
+
+            setToggleState(micBtn, micEnabled, 'micIcon', 'micText', '🎙️', 'Микрофон вкл', '🔇', 'Микрофон выкл');
+            setToggleState(camBtn, cameraEnabled, 'camIcon', 'camText', '📸', 'Камера вкл', '📹', 'Камера выкл');
+            setToggleState(screenBtn, screenEnabled, 'screenIcon', 'screenText', '🖥️', 'Демонстрация вкл', '🖥️', 'Демонстрация выкл');
+        }
+
+        function setToggleState(button, enabled, iconId, textId, onIcon, onText, offIcon, offText) {
+            const icon = document.getElementById(iconId);
+            const text = document.getElementById(textId);
+
+            if (enabled) {
+                button.classList.add('btn-active');
+                button.classList.remove('btn-disabled');
+                icon.textContent = onIcon;
+                text.textContent = onText;
+            } else {
+                button.classList.remove('btn-active');
+                button.classList.add('btn-disabled');
+                icon.textContent = offIcon;
+                text.textContent = offText;
+            }
+        }
+
+        function updateConnections() {
+            Object.values(connections).forEach(conn => {
+                console.log('Медиа обновлены. Чтобы обновить соединение, перезвоните другу при необходимости.');
+            });
+        }
+
+        function addRemoteVideo(peerId, stream) {
+            if (document.getElementById('video_' + peerId)) return;
+
+            const container = document.createElement('div');
+            container.className = 'relative';
+            container.id = 'video_' + peerId;
+
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.autoplay = true;
+            video.playsInline = true;
+
+            const label = document.createElement('div');
+            label.className = 'remote-label';
+            label.textContent = 'ID ' + peerId.substring(0, 8);
+
+            container.appendChild(video);
+            container.appendChild(label);
+            document.getElementById('remoteVideos').appendChild(container);
+        }
+
+        function removeRemoteVideo(peerId) {
+            const el = document.getElementById('video_' + peerId);
+            if (el) {
+                el.remove();
+            }
+            if (connections[peerId]) {
+                delete connections[peerId];
+            }
+        }
+
+        function connectToUser(remotePeerId) {
+            if (!peer || !currentChannel) {
+                console.error('Войдите в комнату и убедитесь, что Peer готов.');
+                return;
+            }
+            const outgoingStream = myStream || new MediaStream();
+            const call = peer.call(remotePeerId, outgoingStream);
+
+            call.on('stream', (remoteStream) => {
+                addRemoteVideo(remotePeerId, remoteStream);
+            });
+
+            call.on('close', () => {
+                removeRemoteVideo(remotePeerId);
+            });
+
+            call.on('error', () => {
+                removeRemoteVideo(remotePeerId);
+            });
+
+            connections[remotePeerId] = call;
+        }
+
+        function refreshVideoPreview() {
+            const myVideoEl = document.getElementById('myVideo');
+            if (myStream && myStream.getVideoTracks().length > 0) {
+                myVideoEl.srcObject = myStream;
+            } else {
+                myVideoEl.srcObject = null;
+            }
+        }
+
+        function highlightChannel(activeId) {
+            ['channel1', 'channel2'].forEach(id => {
+                const card = document.getElementById(id + 'Card');
+                if (!card) return;
+                if (id === activeId) {
+                    card.classList.add('channel-card-active');
+                } else {
+                    card.classList.remove('channel-card-active');
+                }
+            });
+        }
+
+        window.addEventListener('load', () => {
+            const savedNickname = localStorage.getItem('nickname');
+            if (savedNickname) {
+                document.getElementById('nicknameInput').value = savedNickname;
+            }
+            updateMediaButtons();
+        });
+
+        document.getElementById('nicknameInput')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                login();
+            }
+        });
+
+        console.log('%c Anime Voice Nexus v2.0 ', 'background: linear-gradient(90deg,#ff67c4,#7a5cff); color: #05060d; padding: 8px 12px; border-radius: 6px; font-weight: bold;');
+        console.log('%c Поделитесь своим Peer ID и используйте connectToUser("ID") для подключения.', 'color: #ff9de3; font-size: 12px;');
+    </script>
+</body>
+</html>
